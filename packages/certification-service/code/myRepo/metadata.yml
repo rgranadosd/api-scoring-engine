@@ -1,0 +1,4 @@
+apis:
+  - name: OpenAPI REST
+    definition-path: openapi-rest.yml
+    api-spec-type: REST

@@ -1,0 +1,4 @@
+apis:
+  - name: OpenAPI REST
+    definition-path: petstore.yml
+    api-spec-type: REST

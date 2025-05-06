@@ -1,64 +1,47 @@
+// packages/certification-service/code/src/controllers/validation-controller.js
 // SPDX-FileCopyrightText: 2023 Industria de Diseño Textil S.A. INDITEX
 //
 // SPDX-License-Identifier: Apache-2.0
 
-const { isValidValidateRequest, isValidValidateFileRequest } = require("./linter-validations");
-const { getAppLogger } = require("../log");
-const { AppError } = require("../utils/error");
-const { httpStatusCodes } = require("../utils/httpStatusCodes");
 const validateRepositoryUseCase = require("../usecase/validateRepository-usecase");
-const validateFileUseCase = require("../usecase/validateFile-usecase");
-const { VALIDATION_TYPE_OVERALL_SCORE } = require("../verify/types");
+const validateFileUseCase       = require("../usecase/validateFile-usecase");
 
-const logger = getAppLogger();
+module.exports = {
+  /**
+   * POST /apifirst/v1/apis/validate
+   * Expects JSON body with { url, validationType, isVerbose }
+   */
+  validate: async ctx => {
+    const { url, validationType, isVerbose = false } = ctx.request.body || {};
 
-module.exports.validate = async (ctx, next) => {
-  const { isVerbose, validationType } = ctx.request.body;
-  const url = (ctx.request.files && ctx.request.files.file) || ctx.request.body.url;
+    if (!url || typeof url !== "string") {
+      ctx.throw(400, 'Missing or invalid "url" in request body');
+    }
 
-  isValidValidateRequest({ url, validationType });
-
-  try {
+    // Ejecuta la validación de repositorio
+    // Firma: execute(url: string, validationType?: string, isVerbose?: boolean)
     const results = await validateRepositoryUseCase.execute(
       url,
-      validationType || VALIDATION_TYPE_OVERALL_SCORE,
-      isVerbose,
+      validationType,
+      isVerbose
     );
+
     ctx.body = results;
-    ctx.status = httpStatusCodes.HTTP_OK;
-  } catch (e) {
-    handleError(e, ctx);
-  }
-  await next();
-};
+  },
 
-module.exports.validateFile = async (ctx, next) => {
-  const url = (ctx.request.files && ctx.request.files.file) || ctx.request.body.url;
-  const { apiProtocol } = ctx.request.body;
+  /**
+   * POST /apifirst/v1/apis/verify
+   * Expects multipart/form-data with field `file` and optional `apiProtocol`
+   */
+  validateFile: async ctx => {
+    const { apiProtocol = "REST" } = ctx.request.body || {};
+    const { file } = ctx.request.files || {};
 
-  isValidValidateFileRequest({ url, apiProtocol });
-  try {
-    const result = await validateFileUseCase.execute(url, apiProtocol);
-    ctx.body = result;
-    ctx.status = httpStatusCodes.HTTP_OK;
-  } catch (e) {
-    logger.error(e.message);
-    handleError(e, ctx);
-  }
-  await next();
-};
+    if (!file) {
+      ctx.throw(400, 'Missing "file" field (multipart/form-data)');
+    }
 
-const handleError = (e, ctx) => {
-  logger.error(e.toString());
-
-  if (e instanceof AppError) {
-    throw e;
-  }
-
-  throw new AppError({
-    code: 500,
-    message:
-      e.response && e.response.status == 401 ? "The internal credentials are not correct or have expired" : e.message,
-    status: httpStatusCodes.HTTP_INTERNAL_SERVER_ERROR,
-  });
+    // file es el objeto de koa-body con filepath, originalFilename...
+    ctx.body = await validateFileUseCase.execute(file, apiProtocol);
+  },
 };

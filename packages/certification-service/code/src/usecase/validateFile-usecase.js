@@ -15,65 +15,96 @@ const {
 const { checkForErrors } = require("../verify/utils");
 const { LintRuleset } = require("../evaluate/lint/lintRuleset");
 const { API_PROTOCOL } = require("../verify/types");
-const { fromSpectralIssue, fromProtlintIssue, fromEslintIssue } = require("../format/issue");
+const { fromSpectralIssue, fromProtolintIssue, fromEslintIssue } = require("../format/issue");
 const { isGraphqlFileExtension } = require("../utils/fileUtils");
 const graphqlLinterDefaultConfig = require("../rules/graphql");
 
 const logger = getAppLogger();
-module.exports.execute = async (url, apiProtocol) => {
-  let file = null;
-  let auxFile = null;
+
+/**
+ * input puede ser:
+ *  - objeto file de koa-body (tiene .filepath o .path)
+ *  - string URL
+ */
+module.exports.execute = async (input, apiProtocol) => {
+  let filePath;
+  let tempFileCopy;
   let folderPath = generateRandomFolder();
   let fileName;
   try {
+    // ——— fichero subido
     if (
-      url &&
-      (url.mimetype === "text/yaml" ||
-        url.mimetype === "application/json" ||
-        url.originalFilename?.endsWith(".proto") ||
-        isGraphqlFileExtension(url.originalFilename))
+      input &&
+      typeof input !== "string" &&
+      (input.filepath || input.path)
     ) {
-      fs.copyFileSync(url.filepath, `${url.filepath}_${url.originalFilename}`);
-      logger.info(`Received file ${url.originalFilename}`);
-      auxFile = url.filepath;
-      file = `${url.filepath}_${url.originalFilename}`;
-      fileName = url.originalFilename;
+      // koa-body en v6 usa `input.filepath`, fallback a `input.path`
+      filePath = input.filepath || input.path;
+      fileName = input.originalFilename || input.name || path.basename(filePath);
+
+      // copiar para conservar extensión
+      tempFileCopy = `${filePath}_${fileName}`;
+      fs.copyFileSync(filePath, tempFileCopy);
+      logger.info(`Received file ${fileName}`);
+      filePath = tempFileCopy;
+    // ——— URL
+    } else if (typeof input === "string") {
+      fileName = input.split("/").pop().split("?").shift();
+      filePath = path.join(folderPath, fileName);
+      logger.info(`Downloading ${input} to ${filePath}`);
+      await downloadFile(input, filePath);
+
     } else {
-      fileName = url.split("/").pop().split("?").shift();
-      file = path.join(folderPath, fileName);
-      logger.info(`Downloading ${url} to ${file}`);
-      await downloadFile(url, file);
+      throw new Error("Invalid input for validation");
     }
 
-    let results;
+    // ——— ejecutar lint según protocolo
+    let results = [];
     let issues = [];
-    const tempDir = path.dirname(file);
+    const tempDir = path.dirname(filePath);
+
     switch (apiProtocol) {
       case API_PROTOCOL.REST:
         results = await lintFileWithSpectral({
-          file,
+          file: filePath,
           ruleset: LintRuleset.REST_GENERAL.rulesetPath,
         });
-        issues = results.map((issue) => fromSpectralIssue(issue, file, tempDir));
+        issues = results.map(i => fromSpectralIssue(i, filePath, tempDir));
         break;
+
       case API_PROTOCOL.EVENT:
         results = await lintFileWithSpectral({
-          file,
+          file: filePath,
           ruleset: LintRuleset.EVENT_GENERAL.rulesetPath,
         });
-        issues = results.map((issue) => fromSpectralIssue(issue, file, tempDir));
+        issues = results.map(i => fromSpectralIssue(i, filePath, tempDir));
         break;
+
       case API_PROTOCOL.GRPC:
-        const protolintResults = await lintFilesWithProtolint(file, new Map());
-        results = formatProtolintIssues(protolintResults);
-        issues = protolintResults.map((issue) => fromProtlintIssue(issue, file, tempDir));
+        const protoResults = await lintFilesWithProtolint(filePath, new Map());
+        results = protoResults.map(i => ({
+          fileName,
+          code: i.rule,
+          message: i.message,
+          severity: i.severity,
+          source: fileName,
+          range: {
+            start: { line: i.line, character: i.column },
+            end: { line: i.line, character: i.column },
+          },
+          path: [],
+        }));
+        issues = protoResults.map(i => fromProtolintIssue(i, filePath, tempDir));
         break;
+
       case API_PROTOCOL.GRAPHQL:
-        const result = await lintGraphqlFile(file, graphqlLinterDefaultConfig);
-        result.forEach((element) => {
-          element.messages.forEach((message) => issues.push(fromEslintIssue(message, element.filePath, tempDir)));
-        });
-        results = issues.map((issue) => ({
+        const gqlResults = await lintGraphqlFile(filePath, graphqlLinterDefaultConfig);
+        gqlResults.forEach(el =>
+          el.messages.forEach(msg =>
+            issues.push(fromEslintIssue(msg, el.filePath, tempDir))
+          )
+        );
+        results = issues.map(issue => ({
           fileName,
           code: issue.code,
           message: issue.message,
@@ -83,47 +114,32 @@ module.exports.execute = async (url, apiProtocol) => {
           path: issue.path,
         }));
         break;
+
       default:
         break;
     }
 
-    results.forEach((issue) => {
-      issue.source = fileName;
-    });
-
-    let result = {
+    // Normalizar fuente y check de errores
+    results.forEach(i => { i.source = fileName; });
+    const output = {
       hasErrors: false,
       results,
-      issues: issues.map((issue) => ({ ...issue, fileName: fileName })),
+      issues: issues.map(i => ({ ...i, fileName })),
     };
-    result.hasErrors = checkForErrors(result, results);
+    output.hasErrors = checkForErrors(output, results);
+    return output;
 
-    return result;
   } finally {
-    if (file) {
-      fs.unlink(file, (err) => err && logger.error(err.message, `FILE ${file}`));
+    // limpiar temporales
+    if (tempFileCopy) {
+      fs.unlink(tempFileCopy, err =>
+        err && logger.error(err.message, `COPY ${tempFileCopy}`)
+      );
     }
-    if (auxFile) {
-      fs.unlink(auxFile, (err) => err && logger.error(err.message, `AUXFILE ${auxFile}`));
-    }
-    if (folderPath) {
-      fs.rm(folderPath, { recursive: true }, (err) => err && logger.error(err.message, `FOLDER ${folderPath}`));
+    if (folderPath && typeof input === "string") {
+      fs.rm(folderPath, { recursive: true }, err =>
+        err && logger.error(err.message, `FOLDER ${folderPath}`)
+      );
     }
   }
-};
-
-const formatProtolintIssues = (issues) => {
-  return issues.map((issue) => {
-    return {
-      code: issue.rule,
-      message: issue.message,
-      severity: issue.severity,
-      source: issue.fileName,
-      path: [],
-      range: {
-        start: { line: issue.line, character: issue.column },
-        end: { line: issue.line, character: issue.column },
-      },
-    };
-  });
 };

@@ -1,0 +1,5 @@
+apis:
+  - name: "REST Sample"
+    api-spec-type: rest
+    definition-path: myApis/samples/rest
+    definition-file: openapi-rest.yml

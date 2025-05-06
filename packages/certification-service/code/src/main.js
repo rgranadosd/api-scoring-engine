@@ -1,32 +1,45 @@
+// src/main.js
 // SPDX-FileCopyrightText: 2023 Industria de Diseño Textil S.A. INDITEX
 //
 // SPDX-License-Identifier: Apache-2.0
 
 const Koa = require("koa");
-const koaCompose = require("koa-compose");
-const { logRequest } = require("./middleware/logRequest");
-const { errorHandler } = require("./middleware/errorHandler");
+const http = require("http");
 const { getAppLogger } = require("./log");
 const { configValue } = require("./config/config");
-const { router } = require("./routes/router");
 const { bodyParser } = require("./middleware/bodyParser");
-const http = require("http");
+const { logRequest }  = require("./middleware/logRequest");
+const { errorHandler }= require("./middleware/errorHandler");
+const { router }      = require("./routes/router");
 const { LintRuleset } = require("./evaluate/lint/lintRuleset");
 
-const init = async () => {
+async function init() {
   const logger = getAppLogger();
-
+  // Preload any rulesets you need…
   await LintRuleset.updateKnownRulesets();
 
   const app = new Koa();
   const server = http.createServer(app.callback());
 
-  app.use(koaCompose([errorHandler, logRequest, bodyParser(), router.routes()]));
+  // 1. Error handler must be first
+  app.use(errorHandler);
+
+  // 2. Logging each request
+  app.use(logRequest);
+
+  // 3. Global body parser (JSON + multipart)
+  app.use(bodyParser());
+
+  // 4. Mount all routes
+  app.use(router.routes());
+
+  // 5. Add allowedMethods so 405/501 work correctly
+  app.use(router.allowedMethods());
 
   server.listen(configValue("service.port"), () => {
     const { port } = server.address();
-    logger.info(`App listen on port ${port}`);
+    logger.info(`App listening on port ${port}`);
   });
-};
+}
 
 init();
