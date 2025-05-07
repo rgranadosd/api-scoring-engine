@@ -19,9 +19,55 @@ This repository contains the Scoring Service along with its API, responsible for
 
 ## Installation
 
+The following sections describe different ways to set up and run the project.
+
+### Manual Installation (for development or specific components)
+
 You can see that in the root of this repository, there is a `package/` folder. This folder contains both the [microservice package](/packages/certification-service) and the [CLI package](/packages/api-cli#apicli---cli).
 
-To proceed with their installation, please, place yourself in their path and follow the installation guides suggested in the READMEs.
+To proceed with their individual installation, please, place yourself in their path and follow the installation guides suggested in their respective READMEs.
+
+### Running with Docker / Podman (Clean Install using Compose)
+
+This is the recommended way to run the `certification-service` for a clean, containerized deployment. This fork includes a `Dockerfile` and a `docker-compose.yml` file to facilitate this.
+
+**Prerequisites:**
+* Git
+* Docker Desktop installed and running, OR Podman with `podman-compose` (or basic Podman commands).
+    * For `podman-compose`, ensure it's installed (e.g., `pip install podman-compose`).
+
+**Steps:**
+
+1.  **Clone the repository:**
+    ```bash
+    git clone [https://github.com/rgranadosd/api-scoring-engine.git](https://github.com/rgranadosd/api-scoring-engine.git)
+    cd api-scoring-engine
+    ```
+
+2.  **Build and run the service using Docker Compose or Podman Compose:**
+    * **Using Docker Compose:**
+        ```bash
+        docker-compose up --build -d
+        ```
+    * **Using Podman Compose:**
+        ```bash
+        podman-compose up --build -d
+        ```
+    This command will build the Docker image (named `scoring-api` as per `docker-compose.yml`, using the `Dockerfile` in the root) and start the service in detached mode (`-d`). The service will be accessible on your host machine.
+
+3.  **Accessing the Service:**
+    Once the container is running, the API Scoring service should be available at `http://localhost:8088` (as defined by the `ports` mapping `"8088:8080"` in `docker-compose.yml`). You can test an endpoint like `http://localhost:8088/apifirst/v1/apis/score-file` using a tool like `curl` or Postman.
+
+4.  **Checking Logs:**
+    * Docker Compose: `docker-compose logs -f scoring-api`
+    * Podman Compose: `podman-compose logs -f scoring-api` (or `podman logs -f <container_id_or_name>`)
+
+5.  **Stopping the Service:**
+    * Docker Compose: `docker-compose down`
+    * Podman Compose: `podman-compose down`
+
+**Important Note on Configuration:**
+For the scoring to work correctly, ensure the necessary scoring weights are defined as detailed in the "Configuration for Containerized Execution" section below. The `config/default.yml` file (or other active YAML configuration) in the repository is used by the container.
 
 <br>
 
@@ -29,7 +75,7 @@ To proceed with their installation, please, place yourself in their path and fol
 
 For the API Scoring System to function correctly, especially when running within a container (e.g., using the provided `Dockerfile` and `docker-compose.yml`), it's crucial to have the scoring weights properly configured. These weights determine how different aspects of an API (Design, Security, Documentation) contribute to the overall score.
 
-The primary configuration file for these settings is typically `config/default.yml` (or other YAML files loaded by the `config` library, such as `packages/certification-service/code/config/configmap_local.yml`, depending on your environment).
+The primary configuration file for these settings is typically `config/default.yml` (or other YAML files loaded by the `config` library, such as `packages/certification-service/code/config/configmap_local.yml`, depending on your environment). This file is included in the Docker image during the build process.
 
 Ensure the following YAML structure and keys are present and correctly defined with numerical values in your active configuration file:
 
