@@ -1,0 +1,6 @@
+node_modules
+.git
+Dockerfile
+restart.sh
+*.log
+*.md

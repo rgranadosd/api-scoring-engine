@@ -1,0 +1,16 @@
+version: '3.8' # Este warning es inofensivo por ahora, puedes ignorarlo o eliminar la línea 'version:'
+
+services:
+  scoring-api:
+    # Usamos la plataforma amd64 para compatibilidad con binarios como Protolint
+    platform: linux/amd64
+    build:
+      context: .
+      platform: linux/amd64
+    # Mapeamos el puerto 8088 de tu host al puerto 8080 interno del contenedor
+    ports:
+      - "8088:8080" # Asegúrate de que 8080 es el puerto interno correcto
+    restart: unless-stopped
+    # Opcional: Puedes añadir variables de entorno si la aplicación las necesita
+    # environment:
+    #   NOMBRE_VARIABLE: valor

@@ -1,0 +1,69 @@
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Archivos temporales del editor
+*.swp
+*~
+*.sublime-project
+*.sublime-workspace
+*.project
+*.tmproj
+
+# Archivos de log
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# Directorio de dependencias (¡muy importante!)
+node_modules/
+jspm_packages/
+bower_components/
+
+# Archivos de configuración local y de entorno
+.env
+.env.local
+.env.*.local
+!.env.example # A menos que quieras que el ejemplo SÍ esté versionado
+
+# Archivos de compilación y artefactos
+dist/
+build/
+out/
+coverage/
+*.gz
+*.tgz # Paquetes npm generados por npm pack
+
+# Archivos de test y coverage
+/coverage
+/reports
+jest-junit.xml
+
+# Archivos específicos de algunos IDEs/editores
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+.idea/
+*.iml
+
+# Archivos temporales del sistema operativo
+Thumbs.db
+ehthumbs.db
+
+# Ficheros generados por la aplicación (si aplica)
+# Por ejemplo, si tu 'output.json' en packages/certification-service/code/output.json
+# es un fichero temporal o de prueba, podrías añadir:
+# packages/certification-service/code/output.json
+
+# Archivos .zip que parecen ser copias de directorios (myRepo.zip, petstore.zip)
+# Si estos son artefactos de build o no deben estar en el repo, añádelos:
+# myRepo.zip
+# petstore.zip
+# (Si son parte de los "samples" o necesarios, entonces no los ignores)

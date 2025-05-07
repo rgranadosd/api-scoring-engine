@@ -1,0 +1,47 @@
+cerws:
+  lint:
+    rest:
+      general-default-ruleset: packages/certification-service/code/src/rules/openapi/design
+      security-default-ruleset: packages/certification-service/code/src/rules/openapi/security
+    event:
+      general-default-ruleset: packages/certification-service/code/src/rules/event
+    avro:
+      general-default-ruleset: packages/certification-service/code/src/rules/avro
+    grpc:
+      severities-file: packages/certification-service/code/src/rules/lint/grpc/severities.yaml
+
+
+  documentation:
+    rest:
+      general-default-ruleset: packages/certification-service/code/src/rules/openapi/design # Parece referenciar reglas de diseño, revisa si es correcto
+    event:
+      general-default-ruleset: packages/certification-service/code/src/rules/event
+    avro:
+      general-default-ruleset: packages/certification-service/code/src/rules/avro
+
+  markdown:
+    number-of-base-rules: 39
+    markdown-lint-api-custom-rules: packages/certification-service/code/src/rules/documentation/markdownlint/linting-rules/api-rules/apiRules.js
+    markdown-lint-config: packages/certification-service/code/src/rules/documentation/markdownlint/.markdownlint.json
+    # Pesos para Markdown que estaban en scoring.js, ahora definidos aquí:
+    scoring:
+      rules-weights:
+        base-rules: 0.6 # Ejemplo, 60%
+
+  certification:
+    scoring:
+      # Pesos para la ponderación de los módulos en el Overall Score
+      modules-weights:
+        design: 0.5        # 50%
+        documentation: 0.1 # 10% (Recuerda que documentationScore para REST es 0 actualmente en el usecase)
+        security: 0.4      # 40%
+
+      # Pesos para cuando la seguridad no se evalúa (usado en scoreFile-usecase.js para non-REST)
+      modules-weights-without-security:
+        design: 0.8        # 80%
+        documentation: 0.2 # 20%
+
+      # Coeficiente para el peso de los errores en el cálculo de score individual de un ruleset
+      # Usado en scoring.js: calculateCoefficientProportion
+      error-coefficient-weight: 1.5 # Ejemplo, ajusta este valor si es necesario
+  

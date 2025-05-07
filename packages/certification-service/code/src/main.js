@@ -36,9 +36,10 @@ async function init() {
   // 5. Add allowedMethods so 405/501 work correctly
   app.use(router.allowedMethods());
 
-  server.listen(configValue("service.port"), () => {
-    const { port } = server.address();
-    logger.info(`App listening on port ${port}`);
+
+  const PORT = configValue("service.port") || process.env.PORT || 8080;
+  server.listen(PORT, () => {
+    logger.info(`App listening on port ${PORT}`);
   });
 }
 
